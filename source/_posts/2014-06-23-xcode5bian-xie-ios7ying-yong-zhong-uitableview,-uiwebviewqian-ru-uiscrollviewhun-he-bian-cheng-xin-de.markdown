@@ -347,7 +347,8 @@ UITableView加载完后，还要注意一点是总的高度，记得把总高度
 >暂时想不到，大家一起交流看看。
 
 ###结语
-
-网上几乎没有完整的UITableView、UIWebView、UIScrollView混合编程心得，于是就整理下，和大家一起交流。
-欢迎到我博客一起交流。
+原载于：boxertan's blog
 [http://boxertan.github.io](http://boxertan.github.io)
+
+如需转载请以链接形式注明原载或原文地址。
+[http://boxertan.github.io/blog/2014/06/23/xcode5bian-xie-ios7ying-yong-zhong-uitableview%2C-uiwebviewqian-ru-uiscrollviewhun-he-bian-cheng-xin-de/](http://boxertan.github.io/blog/2014/06/23/xcode5bian-xie-ios7ying-yong-zhong-uitableview%2C-uiwebviewqian-ru-uiscrollviewhun-he-bian-cheng-xin-de/)。
