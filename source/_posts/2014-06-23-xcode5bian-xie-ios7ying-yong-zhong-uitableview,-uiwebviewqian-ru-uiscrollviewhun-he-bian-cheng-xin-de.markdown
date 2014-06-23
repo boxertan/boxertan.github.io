@@ -8,7 +8,8 @@ categories:
 
 ## 前言
 
-在项目练习中，需要用到uiwebview、uitableview的混合编程。[老罗](http://lc.life.blog.163.com/)是把UIWebView嵌入UITableView的第一个cell来实现。而我发现苹果官方不推荐UIWebView、UITableView、UIScrollView混合编程，就想验证一下，究竟官方不推荐的原因是什么。
+在项目练习中，需要用到uiwebview、uitableview的混合编程。[老罗](http://lc.life.blog.163.com/)是把UIWebView嵌入UITableView的第一个cell来实现。
+而我发现，***苹果官方不推荐UIWebView、UITableView、UIScrollView混合编程。想验证一下，究竟官方不推荐的原因是什么？***。
 
 
 ## 核心思想
@@ -40,6 +41,7 @@ categories:
 
 初始化UIScrollView：
     
+```objective-c    
     CGRect appFrame = [UIScreen mainScreen].applicationFrame;
     appFrame.origin.y = 0;
     appFrame.size.height = appFrame.size.height + self.navigationController.navigationBar.frame.size.height;
@@ -54,15 +56,16 @@ categories:
         [sv setContentSize:appFrame.size];
         [sv setDelaysContentTouches:YES];
     }
+```
 
 在NavigationController里用代码创建UIScrollView注意高度，记得加上`navigationBar的高度`。
-    
+```objective-c    
     appFrame.size.height = appFrame.size.height + self.navigationController.navigationBar.frame.size.height;
-
+```
 
 初始化UITableView：
 
-    
+```objective-c    
     // UITableView init
     if (tv == nil)
     {
@@ -74,11 +77,13 @@ categories:
         [tv setScrollEnabled:NO];
         [tv setHidden:YES];
     }
+```
+    
 回到上面提到的，UITableView设置不显示滚动条的关键是
 `setScrollEnabled:NO`。为什么我刚开始还设置隐藏呢？因为我是想，等UITableView都加载完毕后，才显示出来。
 
 初始化UIWebView：
-
+```objective-c
     // UIWebView init
     if (wv == nil)
     {
@@ -94,12 +99,14 @@ categories:
         }
         wv.delegate = self;
     }
+```
 
 因为UIWebView是集合有UIScrollView的，所以UIWebView设置不显示滚动条的关键是遍历里面的子视图，找到它的UIScrollView子视图，并禁掉滚动条。
 
 另外，UIWebView内容想自动换行的话，应该是去修改html内容。
-
-    <div style="word-wrap:break-word; width:305px;">abcdefghijklmnabcdefghijklmnabcdefghijklmn111111111</div>
+```html
+    <div style="word-wrap:break-word; width:305px;">abcdefghijklmnabcdefghijklmnabcdefghijklmn</div>
+```
 
 控制好width可实现固定宽度，自动换行。
 
@@ -107,11 +114,11 @@ categories:
 
 
 最后，把UIWebView和UITableView都加为UIScrollView的子视图。
-
+```objective-c
     [self.view addSubview:sv];
     [sv addSubview:wv];
     [sv addSubview:tv];
-    
+```    
 #### 获取UIWebView、UITableView实际高度
 
 获取UIWebView实际高度，可以通过UIWebView的delegate来获取。
@@ -119,7 +126,7 @@ categories:
     webViewDidFinishLoad
 
 获取UITableView的实际高度，可以通过`heightForRowAtIndexPath`来保存每个cell的高度
-
+```objective-c
     - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
     {
 	    DTAttributedTextCell *cell = (DTAttributedTextCell *)[self tableView:tableView preparedCellForIndexPath:indexPath];
@@ -135,15 +142,18 @@ categories:
     
     	return cellHeight;
     }
+```
     
 因为我UITableView里面用了DTCoreTextCell，所以我会把DTCoreTextCell返回的实际每个cell高度保存在self.tvHeight。
 
+```objective-c
     self.tvHeight = self.tvHeight + cellHeight;
-    
+```
+
 好了，到这里基本解决3个View的静态高度问题了。
 
 #### 重新设置3个View的大小和位置关系
-
+```objective-c
     - (void)resetViewPosition
 	{
 
@@ -163,6 +173,7 @@ categories:
     	sv.contentSize = svContentSize;
     	[sv setNeedsLayout];
 	}
+```
 	
 UITableView被我们强制设置了实际大小。起始位置是紧贴着UIWebView。具体布局大家可以根据自己需要设置。
 
@@ -185,7 +196,7 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
 
 
 #### 创建底部更新footer：
-
+```objective-c
 	// 创建表格底部
 	- (void) createFooter:(CGRect)frame
 	{
@@ -222,9 +233,10 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
 	    // 布局完了，转吧菊花！
 	    [loadingAV startAnimating];
 	}
+```
 
 #### 判断UIScrollView下拉到底部
-
+```objective-c
 	- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
 	{
 	    CGFloat svContentY = scrollView.contentOffset.y;
@@ -241,11 +253,12 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
 	        [self loadDataBegin];
 	    }
 	}
+```
 
 我这里代码已经包含到顶、到底2个情况判断了。
 
 然后就是加载数据时候，显示底部菊花旋转：
-
+```objective-c
 	// 开始加载数据
 	- (void) loadDataBegin
 	{
@@ -260,7 +273,7 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
 	    
 	    [self loadDataing];
 	}
-
+```
 #### UITableView加载完毕
 
 如何判断UITableView加载完毕？
@@ -272,7 +285,7 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
 
 
 方法1代码：
-
+```objective-c
     - (void)reloadData
 	{
     	NSLog(@"BEGIN reloadData");
@@ -282,10 +295,11 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
        // 这里就加载完所有数据
     	NSLog(@"END reloadData");
 	}
+```
 
 方法二代码：
 
-
+```objective-c
 	-(UIView*)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section
 	
 	{
@@ -293,11 +307,11 @@ UIWebView的动态变更都很好处理，每次加载完就重现设置一下�
 		// 有多少个section（Header + Footer）,就会调用多少次该函数。
 		// 我们只有一个section，所以只调用一次
 	}
-	
+```	
 	
 	
 UITableView加载完后，还要注意一点是总的高度，记得把总高度减去旧的UITableView高度，才加上新的UITableView的高度。
-
+```objective-c
 	- (void)loadCommentsEndResetHeight
 	{
 	    if ([tv isHidden])
@@ -318,11 +332,12 @@ UITableView加载完后，还要注意一点是总的高度，记得把总高度
 	    [sv setNeedsLayout];
 	    
 	}
+```
 
 还有一个注意点，就是更新数据有时候是不用更新，这种情况也要注意到。
 
 加载数据完了，就把footer隐藏吧。
-	
+```objective-c	
 	- (void)setFooterHidden
 	{
 	    UIActivityIndicatorView *loadingAV = (UIActivityIndicatorView *)[footerView viewWithTag:1002];
@@ -330,21 +345,21 @@ UITableView加载完后，还要注意一点是总的高度，记得把总高度
 	    [footerView setHidden:YES];
 	    [footerView setNeedsDisplay];
 	}
+```
+## 苹果不推荐三者混合编程的原因
 
-## 缺点
+### 实现繁琐复杂
+1. 先自宫：先把苹果提供各种简便的操作给屏蔽
+2. 后练功：再把屏蔽掉的各种简便操作给重新实现一遍
 
-- 实现繁琐复杂
->是的，到这里我们终于知道了苹果为何不推荐UIWebView、UITableView、UIScrllView这3个控件混合编程了。很多苹果帮我们封装好的东西，我们都需要自己重新实现一遍。
+如果不完成上面2步会怎样？对不起，各种奇怪的bug因此而生。
 
-- 体验不好
->自己实现的还是不及苹果封装的体验好。如果不是项目需求，建议尽可能使用原生控件。
-简单就是美。
 
-- 解决UITableView在3.5寸屏显示不全的问题
->用约束，就是autolayout，大家可以网上查一下。
+### 体验非常不好
+1. 自己实现的还是不及苹果封装的体验好。例如滚动条的流畅度，顶部、底部加载流畅度，等等。
+2. 如果不是项目需求，建议尽可能使用原生控件。简单就是美。
 
-- 其它
->暂时想不到，大家一起交流看看。
+
 
 ###结语
 原载于：boxertan's blog
