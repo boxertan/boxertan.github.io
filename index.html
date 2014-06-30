@@ -7,8 +7,7 @@
 	<meta name="author" content="boxertan">
 
 	
-	<meta name="description" content="基本概念 先介绍下升级车载导航必须知道的几个概念： 车载一体机：就是有导航、音视频、倒车影像等综合功能的机器，已经安装在车上的。我们不折腾这个。
-凯立德、高德、道道通、城际通等等：导航软件，我们的折腾的目标。导航软件升级分两部分：程序和地图。 如果你的导航版本比较新，那么只要下载最新的地图， &hellip;">
+	<meta name="description" content="前言 iBeacon的用处和好处我就不介绍了，大家可以看我最后面附录的参考文章。 本文重点介绍如何写一个app，通过2台iphone来实现iBeancon的收发。 所需材料 iBeacon 使用低功耗的蓝牙技术，所以你必须要有一个内置有低功耗蓝牙的 iOS 设备以便与 iBeacon 协同工作 &hellip;">
 	
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
@@ -77,6 +76,94 @@
 		
 	
 	<div id="content" class="inner">
+
+
+    <article class="post">
+	<h2 class="title">
+		
+		<a href="/blog/2014/06/25/zai-xcode5shang-kai-fa-ibeaconde-ios7ying-yong/">
+		
+			在xcode5上开发iBeacon的ios7应用</a>
+	</h2>
+	<div class="entry-content">
+		<p><img src="/images/iBeacon_2014-06-25/iBeacon_2014-06-25.jpg" alt="titlepic" /></p>
+
+<h2>前言</h2>
+
+<p>iBeacon的用处和好处我就不介绍了，大家可以看我最后面附录的参考文章。</p>
+
+<p>本文重点介绍如何写一个app，通过2台iphone来实现iBeancon的收发。</p>
+
+<h4>所需材料</h4>
+
+<p>iBeacon 使用低功耗的蓝牙技术，所以你必须要有一个内置有低功耗蓝牙的 iOS 设备以便与 iBeacon 协同工作。</p>
+
+<p>为了做完这个实验，你需要其中2台如下的设备：</p>
+
+<ol>
+<li>iPhone 4s 或更新的</li>
+<li>第三代 iPad 或更新的</li>
+<li>iPad mini 或更新的</li>
+<li>第五代iPod touch 或更新的</li>
+</ol>
+
+
+<p>另外，还需要一个开发者帐号进行真机调试，或者请同事亲戚朋友导出他的开发者证书到你机器上，又或者这2台设备都已经越狱。</p>
+
+<h4>基本概念</h4>
+
+<p>iBeacon 需要掌握的基本概念只有3个：ProximityUUID、major、minor。</p>
+
+<p>ProximityUUID：感应标识符，全球唯一的标识符，128bit，通过命令uuidgen即可生成。用这个来区别其它公司或者机构的iBeacon产品。例如我们的咖啡店用下面的感应标识符：</p>
+
+<pre><code>boxertandeiMac:boxertan.github.io boxertan$ uuidgen
+E172F7F9-4F2F-4378-A3A8-737433C6F9B1
+</code></pre>
+
+<p>major：主要值，扩展字段，16bit，比如说用来区别公司下属的分公司或者分店。例如我们的咖啡店分店：1为南山店，2为福田店，3为罗湖店，等等。</p>
+
+<p>minor：次要值，再细分的扩展字段，16bit，比如说咖啡店南山分店用了10个 iBeacon 发射器，那么分别为1-10。</p>
+
+<h2>思路</h2>
+
+<ol>
+<li>实现发射器</li>
+<li>实现接收器</li>
+</ol>
+
+
+
+		
+		<a href="/blog/2014/06/25/zai-xcode5shang-kai-fa-ibeaconde-ios7ying-yong/" class="more-link">Read on &rarr;</a>
+	</div>
+
+
+<div class="meta">
+	<div class="date">
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-06-25T09:30:10+08:00" pubdate data-updated="true">Jun 25<span>th</span>, 2014</time></div>
+	<div class="tags">
+
+</div>
+	
+
+
+         
+          | <a href="/blog/2014/06/25/zai-xcode5shang-kai-fa-ibeaconde-ios7ying-yong/#comments">Comments</a>
+         
+
+</div>
+</article>
 
 
     <article class="post">
@@ -209,557 +296,9 @@
 </ol>
 
 
-<h2>实现细节</h2>
-
-<h4>初始化3个view</h4>
-
-<p>初始化UIScrollView：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="n">CGRect</span> <span class="n">appFrame</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIScreen</span> <span class="n">mainScreen</span><span class="p">].</span><span class="n">applicationFrame</span><span class="p">;</span>
-</span><span class='line'><span class="n">appFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-</span><span class='line'><span class="n">appFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">appFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">navigationController</span><span class="p">.</span><span class="n">navigationBar</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'><span class="c1">// UIScrollView init</span>
-</span><span class='line'><span class="k">if</span> <span class="p">(</span><span class="n">sv</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">sv</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIScrollView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame:</span><span class="n">appFrame</span><span class="p">];</span>
-</span><span class='line'>    <span class="n">sv</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">lightGrayColor</span><span class="p">];</span>
-</span><span class='line'>    <span class="n">sv</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="n">self</span><span class="p">;</span>
-</span><span class='line'>    <span class="c1">// 设置内容大小，后面根据内容大小调整</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">sv</span> <span class="nl">setContentSize:</span><span class="n">appFrame</span><span class="p">.</span><span class="n">size</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">sv</span> <span class="nl">setDelaysContentTouches:</span><span class="n">YES</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>在NavigationController里用代码创建UIScrollView注意高度，记得加上<code>navigationBar的高度</code>。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="n">appFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">appFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">navigationController</span><span class="p">.</span><span class="n">navigationBar</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>初始化UITableView：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="c1">// UITableView init</span>
-</span><span class='line'><span class="k">if</span> <span class="p">(</span><span class="n">tv</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">tv</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UITableView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame:</span><span class="n">appFrame</span><span class="p">];</span>
-</span><span class='line'>    <span class="n">tv</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="n">self</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">tv</span><span class="p">.</span><span class="n">dataSource</span> <span class="o">=</span> <span class="n">self</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">tv</span><span class="p">.</span><span class="n">showsHorizontalScrollIndicator</span> <span class="o">=</span> <span class="n">NO</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">tv</span><span class="p">.</span><span class="n">showsVerticalScrollIndicator</span> <span class="o">=</span> <span class="n">NO</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">tv</span> <span class="nl">setScrollEnabled:</span><span class="n">NO</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">tv</span> <span class="nl">setHidden:</span><span class="n">YES</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>回到上面提到的，UITableView设置不显示滚动条的关键是
-<code>setScrollEnabled:NO</code>。为什么我刚开始还设置隐藏呢？因为我是想，等UITableView都加载完毕后，才显示出来。</p>
-
-<p>初始化UIWebView：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="c1">// UIWebView init</span>
-</span><span class='line'><span class="k">if</span> <span class="p">(</span><span class="n">wv</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">wv</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIWebView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame:</span><span class="n">appFrame</span><span class="p">];</span>
-</span><span class='line'>    <span class="c1">//wv.scalesPageToFit = YES;</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">wv</span> <span class="nl">loadHTMLString:</span><span class="n">self</span><span class="p">.</span><span class="n">htmlString</span> <span class="nl">baseURL:</span><span class="nb">nil</span><span class="p">];</span>
-</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="n">UIView</span> <span class="o">*</span><span class="n">aView</span> <span class="k">in</span> <span class="p">[</span><span class="n">wv</span> <span class="n">subviews</span><span class="p">])</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="k">if</span> <span class="p">([</span><span class="n">aView</span> <span class="nl">isKindOfClass:</span><span class="p">[</span><span class="n">UIScrollView</span> <span class="n">class</span><span class="p">]])</span>
-</span><span class='line'>        <span class="p">{</span>
-</span><span class='line'>            <span class="p">[(</span><span class="n">UIScrollView</span> <span class="o">*</span><span class="p">)</span><span class="n">aView</span> <span class="nl">setShowsHorizontalScrollIndicator:</span><span class="n">NO</span><span class="p">];</span>
-</span><span class='line'>        <span class="p">}</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="n">wv</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="n">self</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>因为UIWebView是集合有UIScrollView的，所以UIWebView设置不显示滚动条的关键是遍历里面的子视图，找到它的UIScrollView子视图，并禁掉滚动条。</p>
-
-<p>另外，UIWebView内容想自动换行的话，应该是去修改html内容。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;div</span> <span class="na">style=</span><span class="s">&quot;word-wrap:break-word; width:305px;&quot;</span><span class="nt">&gt;</span>abcdefghijklmnabcdefghijklmnabcdefghijklmn<span class="nt">&lt;/div&gt;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>控制好width可实现固定宽度，自动换行。</p>
-
-<p>而<code>webView.scalesPageToFit = YES;</code>会自动调整html适应屏幕大小，会改变字体大小，不会自动换行。</p>
-
-<p>最后，把UIWebView和UITableView都加为UIScrollView的子视图。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">view</span> <span class="nl">addSubview:</span><span class="n">sv</span><span class="p">];</span>
-</span><span class='line'><span class="p">[</span><span class="n">sv</span> <span class="nl">addSubview:</span><span class="n">wv</span><span class="p">];</span>
-</span><span class='line'><span class="p">[</span><span class="n">sv</span> <span class="nl">addSubview:</span><span class="n">tv</span><span class="p">];</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<h4>获取UIWebView、UITableView实际高度</h4>
-
-<p>获取UIWebView实际高度，可以通过UIWebView的delegate来获取。</p>
-
-<pre><code>webViewDidFinishLoad
-</code></pre>
-
-<p>获取UITableView的实际高度，可以通过<code>heightForRowAtIndexPath</code>来保存每个cell的高度</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="n">CGFloat</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">tableView</span> <span class="nf">heightForRowAtIndexPath:</span><span class="p">(</span><span class="n">NSIndexPath</span> <span class="o">*</span><span class="p">)</span><span class="nv">indexPath</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">DTAttributedTextCell</span> <span class="o">*</span><span class="n">cell</span> <span class="o">=</span> <span class="p">(</span><span class="n">DTAttributedTextCell</span> <span class="o">*</span><span class="p">)[</span><span class="n">self</span> <span class="nl">tableView:</span><span class="n">tableView</span> <span class="nl">preparedCellForIndexPath:</span><span class="n">indexPath</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>   <span class="k">if</span> <span class="p">(</span><span class="n">cell</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
-</span><span class='line'>  <span class="p">{</span>
-</span><span class='line'>      <span class="k">return</span> <span class="mi">100</span><span class="p">;</span>
-</span><span class='line'>  <span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">CGFloat</span> <span class="n">cellHeight</span> <span class="o">=</span>  <span class="p">[</span><span class="n">cell</span> <span class="nl">requiredRowHeightInTableView:</span><span class="n">tableView</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">self</span><span class="p">.</span><span class="n">tvHeight</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">tvHeight</span> <span class="o">+</span> <span class="n">cellHeight</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="k">return</span> <span class="n">cellHeight</span><span class="p">;</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>因为我UITableView里面用了DTCoreTextCell，所以我会把DTCoreTextCell返回的实际每个cell高度保存在self.tvHeight。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="n">self</span><span class="p">.</span><span class="n">tvHeight</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">tvHeight</span> <span class="o">+</span> <span class="n">cellHeight</span><span class="p">;</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>好了，到这里基本解决3个View的静态高度问题了。</p>
-
-<h4>重新设置3个View的大小和位置关系</h4>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">resetViewPosition</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">CGSize</span> <span class="n">actualSize</span> <span class="o">=</span> <span class="p">[</span><span class="n">wv</span> <span class="nl">sizeThatFits:</span><span class="n">CGSizeZero</span><span class="p">];</span>
-</span><span class='line'>  <span class="n">CGRect</span> <span class="n">newFrame</span> <span class="o">=</span> <span class="n">wv</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
-</span><span class='line'>  <span class="n">newFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">actualSize</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
-</span><span class='line'>  <span class="n">wv</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">newFrame</span><span class="p">;</span>
-</span><span class='line'>  <span class="p">[</span><span class="n">wv</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">CGRect</span> <span class="n">tvFrame</span> <span class="o">=</span> <span class="n">tv</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
-</span><span class='line'>  <span class="n">tvFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">wv</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
-</span><span class='line'>  <span class="n">tv</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">tvFrame</span><span class="p">;</span>
-</span><span class='line'>  <span class="p">[</span><span class="n">tv</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="n">CGSize</span> <span class="n">svContentSize</span> <span class="o">=</span> <span class="n">sv</span><span class="p">.</span><span class="n">contentSize</span><span class="p">;</span>
-</span><span class='line'>  <span class="n">svContentSize</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">wv</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="n">tv</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="mi">21</span><span class="p">;</span>
-</span><span class='line'>  <span class="n">sv</span><span class="p">.</span><span class="n">contentSize</span> <span class="o">=</span> <span class="n">svContentSize</span><span class="p">;</span>
-</span><span class='line'>  <span class="p">[</span><span class="n">sv</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>UITableView被我们强制设置了实际大小。起始位置是紧贴着UIWebView。具体布局大家可以根据自己需要设置。</p>
-
-<h4>UITableView底部上拉更新思路</h4>
-
-<p>上面已经基本完成静态的加载。我们肯定还要处理动态的加载。</p>
-
-<p>UIWebView的动态变更都很好处理，每次加载完就重现设置一下高度即可。</p>
-
-<p>而UITableView的动态变更就麻烦点，因为它被我们强制设置了实际大小，类似顶部、底部的消息，都应该交给父视图UIScrollView去处理。</p>
-
-<p>我的做法如下：</p>
-
-<ol>
-<li>再单独做一个UILabel，作为UIScrollView的子类.</li>
-<li>当UIScrollView拉到底部时候，显示出“正在加载数据&hellip;”，当然还可以前面加个菊花转转转。</li>
-<li>然后去通知UITableView去更新新的内容。</li>
-<li>当UITableView更新完毕，隐藏UILabel。</li>
-<li>再重新设置3个View的静态高度即可。</li>
-</ol>
-
-
-<h4>创建底部更新footer：</h4>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-<span class='line-number'>21</span>
-<span class='line-number'>22</span>
-<span class='line-number'>23</span>
-<span class='line-number'>24</span>
-<span class='line-number'>25</span>
-<span class='line-number'>26</span>
-<span class='line-number'>27</span>
-<span class='line-number'>28</span>
-<span class='line-number'>29</span>
-<span class='line-number'>30</span>
-<span class='line-number'>31</span>
-<span class='line-number'>32</span>
-<span class='line-number'>33</span>
-<span class='line-number'>34</span>
-<span class='line-number'>35</span>
-<span class='line-number'>36</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="c1">// 创建表格底部</span>
-</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="nf">createFooter:</span><span class="p">(</span><span class="n">CGRect</span><span class="p">)</span><span class="nv">frame</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">footerView</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="k">return</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">footerView</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame:</span><span class="n">frame</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">UILabel</span> <span class="o">*</span><span class="n">loadMoreText</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UILabel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame:</span><span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">40</span><span class="p">)];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setCenter:</span><span class="n">footerView</span><span class="p">.</span><span class="n">center</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setBackgroundColor:</span><span class="p">[</span><span class="n">UIColor</span> <span class="n">whiteColor</span><span class="p">]];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setFont:</span><span class="p">[</span><span class="n">UIFont</span> <span class="nl">systemFontOfSize:</span><span class="mi">14</span><span class="p">]];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setTextColor:</span><span class="p">[</span><span class="n">UIColor</span> <span class="n">grayColor</span><span class="p">]];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setText:</span><span class="s">@&quot;正在拉取更多数据...&quot;</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setTextAlignment:</span><span class="n">NSTextAlignmentCenter</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadMoreText</span> <span class="nl">setTag:</span><span class="mi">1001</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">UIActivityIndicatorView</span><span class="o">*</span> <span class="n">loadingAV</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIActivityIndicatorView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithActivityIndicatorStyle:</span><span class="n">UIActivityIndicatorViewStyleGray</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadingAV</span> <span class="nl">setTag:</span><span class="mi">1002</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">addSubview:</span><span class="n">loadMoreText</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">addSubview:</span><span class="n">loadingAV</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">setHidden:</span><span class="n">YES</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1">//自动布局</span>
-</span><span class='line'>    <span class="n">loadingAV</span><span class="p">.</span><span class="n">translatesAutoresizingMaskIntoConstraints</span> <span class="o">=</span> <span class="n">NO</span><span class="p">;</span>
-</span><span class='line'>    <span class="c1">//垂直居中</span>
-</span><span class='line'>    <span class="n">NSDictionary</span><span class="o">*</span> <span class="n">views</span> <span class="o">=</span> <span class="n">NSDictionaryOfVariableBindings</span><span class="p">(</span><span class="n">loadingAV</span><span class="p">);</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">addConstraints:</span><span class="p">[</span><span class="n">NSLayoutConstraint</span> <span class="nl">constraintsWithVisualFormat:</span><span class="s">@&quot;V:|-[loadingAV]-|&quot;</span> <span class="nl">options:</span><span class="n">NSLayoutFormatAlignAllCenterX</span> <span class="nl">metrics:</span><span class="nb">nil</span> <span class="nl">views:</span><span class="n">views</span><span class="p">]];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">addConstraints:</span><span class="p">[</span><span class="n">NSLayoutConstraint</span> <span class="nl">constraintsWithVisualFormat:</span><span class="s">@&quot;H:|-60-[loadingAV]&quot;</span> <span class="nl">options:</span><span class="mi">0</span> <span class="nl">metrics:</span><span class="nb">nil</span> <span class="nl">views:</span><span class="n">views</span><span class="p">]];</span>
-</span><span class='line'>    <span class="c1">// 布局完了，转吧菊花！</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadingAV</span> <span class="n">startAnimating</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>判断UIScrollView下拉到底部</h4>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">scrollViewDidEndDecelerating:</span><span class="p">(</span><span class="n">UIScrollView</span> <span class="o">*</span><span class="p">)</span><span class="nv">scrollView</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">CGFloat</span> <span class="n">svContentY</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">contentOffset</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">svContentY</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="c1">// 向上到顶</span>
-</span><span class='line'>        <span class="k">return</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="n">CGFloat</span> <span class="n">c</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">contentSize</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">svContentY</span> <span class="o">&gt;=</span> <span class="n">c</span><span class="p">)</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="c1">// 向下到底</span>
-</span><span class='line'>        <span class="p">[</span><span class="n">self</span> <span class="n">loadDataBegin</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>我这里代码已经包含到顶、到底2个情况判断了。</p>
-
-<p>然后就是加载数据时候，显示底部菊花旋转：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="c1">// 开始加载数据</span>
-</span><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="nf">loadDataBegin</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">CGRect</span> <span class="n">fvFrame</span> <span class="o">=</span> <span class="n">footerView</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">fvFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">sv</span><span class="p">.</span><span class="n">contentSize</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="mi">300</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">footerView</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">fvFrame</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">setHidden:</span><span class="n">NO</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1">// 每次重新加载UITableView都把高度先设置为0，reloaddata里面会重新叠加</span>
-</span><span class='line'>    <span class="n">self</span><span class="p">.</span><span class="n">tvHeight</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="p">[</span><span class="n">self</span> <span class="n">loadDataing</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h4>UITableView加载完毕</h4>
-
-<p>如何判断UITableView加载完毕？</p>
-
-<p>我发现有2个方法，在这里一起说一下。</p>
-
-<ol>
-<li>reloadData函数结束，表示加载完成。</li>
-<li>接收viewForHeaderInSection，表示加载完成。</li>
-</ol>
-
-
-<p>方法1代码：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">reloadData</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>  <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;BEGIN reloadData&quot;</span><span class="p">);</span>
-</span><span class='line'>
-</span><span class='line'>  <span class="p">[</span><span class="n">super</span> <span class="n">reloadData</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>   <span class="c1">// 这里就加载完所有数据</span>
-</span><span class='line'>  <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;END reloadData&quot;</span><span class="p">);</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>方法二代码：</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span><span class="p">(</span><span class="n">UIView</span><span class="o">*</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">tableView</span> <span class="nf">viewForHeaderInSection:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="nv">section</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>  <span class="c1">// 当所有的Cell加载完后，调用这个函数。</span>
-</span><span class='line'>  <span class="c1">// 有多少个section（Header + Footer）,就会调用多少次该函数。</span>
-</span><span class='line'>  <span class="c1">// 我们只有一个section，所以只调用一次</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p></p>
-
-<p>UITableView加载完后，还要注意一点是总的高度，记得把总高度减去旧的UITableView高度，才加上新的UITableView的高度。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-<span class='line-number'>8</span>
-<span class='line-number'>9</span>
-<span class='line-number'>10</span>
-<span class='line-number'>11</span>
-<span class='line-number'>12</span>
-<span class='line-number'>13</span>
-<span class='line-number'>14</span>
-<span class='line-number'>15</span>
-<span class='line-number'>16</span>
-<span class='line-number'>17</span>
-<span class='line-number'>18</span>
-<span class='line-number'>19</span>
-<span class='line-number'>20</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">loadCommentsEndResetHeight</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="k">if</span> <span class="p">([</span><span class="n">tv</span> <span class="n">isHidden</span><span class="p">])</span>
-</span><span class='line'>    <span class="p">{</span>
-</span><span class='line'>        <span class="p">[</span><span class="n">tv</span> <span class="nl">setHidden:</span><span class="n">NO</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">}</span>
-</span><span class='line'>    <span class="n">CGRect</span> <span class="n">rect</span> <span class="o">=</span> <span class="n">tv</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">CGFloat</span> <span class="n">tvOldHeight</span> <span class="o">=</span> <span class="n">tv</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">rect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">tvHeight</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">tv</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">rect</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">tv</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'>    <span class="c1">// 重新设置scrollview的内容大小</span>
-</span><span class='line'>    <span class="n">CGSize</span> <span class="n">size</span> <span class="o">=</span> <span class="n">sv</span><span class="p">.</span><span class="n">contentSize</span><span class="p">;</span>
-</span><span class='line'>    <span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">sv</span><span class="p">.</span><span class="n">contentSize</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="n">tv</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">tvOldHeight</span><span class="p">;</span>
-</span><span class='line'><span class="c1">//    NSLog(@&quot;%f, %f&quot;, sv.contentSize.height, size.height);</span>
-</span><span class='line'>    <span class="n">sv</span><span class="p">.</span><span class="n">contentSize</span> <span class="o">=</span> <span class="n">size</span><span class="p">;</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">sv</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
-</span><span class='line'>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<p>还有一个注意点，就是更新数据有时候是不用更新，这种情况也要注意到。</p>
-
-<p>加载数据完了，就把footer隐藏吧。</p>
-
-<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
-<span class='line-number'>2</span>
-<span class='line-number'>3</span>
-<span class='line-number'>4</span>
-<span class='line-number'>5</span>
-<span class='line-number'>6</span>
-<span class='line-number'>7</span>
-</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setFooterHidden</span>
-</span><span class='line'><span class="p">{</span>
-</span><span class='line'>    <span class="n">UIActivityIndicatorView</span> <span class="o">*</span><span class="n">loadingAV</span> <span class="o">=</span> <span class="p">(</span><span class="n">UIActivityIndicatorView</span> <span class="o">*</span><span class="p">)[</span><span class="n">footerView</span> <span class="nl">viewWithTag:</span><span class="mi">1002</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">loadingAV</span> <span class="n">stopAnimating</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="nl">setHidden:</span><span class="n">YES</span><span class="p">];</span>
-</span><span class='line'>    <span class="p">[</span><span class="n">footerView</span> <span class="n">setNeedsDisplay</span><span class="p">];</span>
-</span><span class='line'><span class="p">}</span>
-</span></code></pre></td></tr></table></div></figure>
-
-
-<h2>苹果不推荐三者混合编程的原因</h2>
-
-<h3>实现繁琐复杂</h3>
-
-<ol>
-<li>先自宫：先把苹果提供各种简便的操作给屏蔽</li>
-<li>后练功：再把屏蔽掉的各种简便操作给重新实现一遍</li>
-</ol>
-
-
-<p>如果不完成上面2步会怎样？对不起，各种奇怪的bug因此而生。</p>
-
-<h3>体验非常不好</h3>
-
-<ol>
-<li>自己实现的还是不及苹果封装的体验好。例如滚动条的流畅度，顶部、底部加载流畅度，等等。</li>
-<li>如果不是项目需求，建议尽可能使用原生控件。简单就是美。</li>
-</ol>
-
-
-<h3>结语</h3>
-
-<p>原载于：boxertan&rsquo;s blog
-<a href="http://boxertan.github.io">http://boxertan.github.io</a></p>
-
-<p>如需转载请以链接形式注明原载或原文地址。
-<a href="http://boxertan.github.io/blog/2014/06/23/xcode5bian-xie-ios7ying-yong-zhong-uitableview%2C-uiwebviewqian-ru-uiscrollviewhun-he-bian-cheng-xin-de/">http://boxertan.github.io/blog/2014/06/23/xcode5bian-xie-ios7ying-yong-zhong-uitableview%2C-uiwebviewqian-ru-uiscrollviewhun-he-bian-cheng-xin-de/</a>。</p>
 
 		
-		
+		<a href="/blog/2014/06/23/xcode5bian-xie-ios7ying-yong-zhong-uitableview%2C-uiwebviewqian-ru-uiscrollviewhun-he-bian-cheng-xin-de/" class="more-link">Read on &rarr;</a>
 	</div>
 
 
@@ -860,6 +399,18 @@
 
 
 
+
+	<script type="text/javascript">
+		var _gaq = _gaq || [];
+		_gaq.push(['_setAccount', 'UA-52404209-1']);
+		_gaq.push(['_trackPageview']);
+
+		(function() {
+			var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+			ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+			var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+		})();
+	</script>
 
 
 
