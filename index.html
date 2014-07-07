@@ -7,7 +7,7 @@
 	<meta name="author" content="boxertan">
 
 	
-	<meta name="description" content="前言 iBeacon的用处和好处我就不介绍了，大家可以看我最后面附录的参考文章。 本文重点介绍如何写一个app，通过2台iphone来实现iBeancon的收发。 所需材料 iBeacon 使用低功耗的蓝牙技术，所以你必须要有一个内置有低功耗蓝牙的 iOS 设备以便与 iBeacon 协同工作 &hellip;">
+	<meta name="description" content="前言 上一次我们研究完iBeacon，发现iBeacon是基于蓝牙4.0的一个封装而已。那么，今天我们来研究ios的蓝牙4.0的应用。最出名的app当属lightblue，我们不妨来仿写一个lightblue，这样基本的ios蓝牙编程就算入门了。 基本理论 框架与概念 在ios中使用蓝牙技术， &hellip;">
 	
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
@@ -81,6 +81,92 @@
     <article class="post">
 	<h2 class="title">
 		
+		<a href="/blog/2014/07/07/xue-xi-ioslan-ya-ji-zhu-%2Cfang-xie-lightblue/">
+		
+			学习ios蓝牙技术，仿写lightblue_2014-07-07</a>
+	</h2>
+	<div class="entry-content">
+		<h2>前言</h2>
+
+<p><img src="/images/bluetooth_2014-07-07/300px-Bluetooth.svg.png" alt="bluetooth" /></p>
+
+<p>上一次我们研究完iBeacon，发现iBeacon是基于蓝牙4.0的一个封装而已。那么，今天我们来研究ios的蓝牙4.0的应用。最出名的app当属lightblue，我们不妨来仿写一个lightblue，这样基本的ios蓝牙编程就算入门了。</p>
+
+<h2>基本理论</h2>
+
+<h3>框架与概念</h3>
+
+<p>在ios中使用蓝牙技术，会用到CoreBluetooth框架。</p>
+
+<p>里面对设备有2个定义：周边(peripeheral)设备 与 中央(central)设备。发送蓝牙信号的是周边设备，接收蓝牙信号的是中央设备。</p>
+
+<p>可以这样理解，周边设备是服务端，中央设备是客户端。中央设备可以去搜索周边有哪些服务端，可以选择连接上其中一台，进行信息获取。</p>
+
+<p>支持蓝牙4.0的手机，可以作为周边设备，也可以作为中央设备，但是<strong>不能同时</strong>既为周边设备又为中央设备。</p>
+
+<h3>类解读</h3>
+
+<p>中央设备用 <code>CBCentralManager</code>    这个类管理。</p>
+
+<p>周边设备用 <code>CBPeripheralManager</code> 这个类管理；</p>
+
+<p>周边设备里面还有服务类 <code>CBService</code>，服务里面有各种各样的特性类 <code>CBCharacteristic</code>。</p>
+
+<h2>仿写lightblue</h2>
+
+<h3>基本流程</h3>
+
+<ol>
+<li>假设我们有2台以上可用设备。</li>
+<li>其中一台作为调试机，用来搜索其它设备，并连接上去。所以，是中央设备<code>central</code>。</li>
+<li>其它设备设置为蓝牙发射器，即是周边设备<code>peripheral</code>。</li>
+<li>调试机先扫描周边设备，用UITableView展示所扫描到的周边设备。</li>
+<li>点击其中一台设备，进行连接<code>connect</code>。</li>
+<li>连接上后，获取其中的所有服务<code>services</code>。</li>
+<li>对其中每个服务进行遍历，获取所有的特性<code>Characteristic</code>。</li>
+<li>读取每个特性，获取每个特性的值<code>value</code>。</li>
+</ol>
+
+
+<p>至此，lightblue基本的仿写思路就清晰列出来了。</p>
+
+
+		
+		<a href="/blog/2014/07/07/xue-xi-ioslan-ya-ji-zhu-%2Cfang-xie-lightblue/" class="more-link">Read on &rarr;</a>
+	</div>
+
+
+<div class="meta">
+	<div class="date">
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-07-07T09:03:05+08:00" pubdate data-updated="true">Jul 7<span>th</span>, 2014</time></div>
+	<div class="tags">
+
+</div>
+	
+
+
+         
+          | <a href="/blog/2014/07/07/xue-xi-ioslan-ya-ji-zhu-%2Cfang-xie-lightblue/#comments">Comments</a>
+         
+
+</div>
+</article>
+
+
+    <article class="post">
+	<h2 class="title">
+		
 		<a href="/blog/2014/06/25/zai-xcode5shang-kai-fa-ibeaconde-ios7ying-yong/">
 		
 			在xcode5上开发iBeacon的ios7应用</a>
@@ -93,6 +179,8 @@
 <p>iBeacon的用处和好处我就不介绍了，大家可以看我最后面附录的参考文章。</p>
 
 <p>本文重点介绍如何写一个app，通过2台iphone来实现iBeancon的收发。</p>
+
+<p>强调一点，就是ibeacon是不能进行数据交互的，只能广播信号。</p>
 
 <h4>所需材料</h4>
 

@@ -4,7 +4,7 @@
   <title><![CDATA[Boxertan's Blog]]></title>
   <link href="http://boxertan.github.io/atom.xml" rel="self"/>
   <link href="http://boxertan.github.io/"/>
-  <updated>2014-06-30T15:00:16+08:00</updated>
+  <updated>2014-07-07T15:45:12+08:00</updated>
   <id>http://boxertan.github.io/</id>
   <author>
     <name><![CDATA[boxertan]]></name>
@@ -12,6 +12,496 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[学习ios蓝牙技术，仿写lightblue_2014-07-07]]></title>
+    <link href="http://boxertan.github.io/blog/2014/07/07/xue-xi-ioslan-ya-ji-zhu-%2Cfang-xie-lightblue/"/>
+    <updated>2014-07-07T09:03:05+08:00</updated>
+    <id>http://boxertan.github.io/blog/2014/07/07/xue-xi-ioslan-ya-ji-zhu-,fang-xie-lightblue</id>
+    <content type="html"><![CDATA[<h2>前言</h2>
+
+<p><img src="http://boxertan.github.io/images/bluetooth_2014-07-07/300px-Bluetooth.svg.png" alt="bluetooth" /></p>
+
+<p>上一次我们研究完iBeacon，发现iBeacon是基于蓝牙4.0的一个封装而已。那么，今天我们来研究ios的蓝牙4.0的应用。最出名的app当属lightblue，我们不妨来仿写一个lightblue，这样基本的ios蓝牙编程就算入门了。</p>
+
+<h2>基本理论</h2>
+
+<h3>框架与概念</h3>
+
+<p>在ios中使用蓝牙技术，会用到CoreBluetooth框架。</p>
+
+<p>里面对设备有2个定义：周边(peripeheral)设备 与 中央(central)设备。发送蓝牙信号的是周边设备，接收蓝牙信号的是中央设备。</p>
+
+<p>可以这样理解，周边设备是服务端，中央设备是客户端。中央设备可以去搜索周边有哪些服务端，可以选择连接上其中一台，进行信息获取。</p>
+
+<p>支持蓝牙4.0的手机，可以作为周边设备，也可以作为中央设备，但是<strong>不能同时</strong>既为周边设备又为中央设备。</p>
+
+<h3>类解读</h3>
+
+<p>中央设备用 <code>CBCentralManager</code>    这个类管理。</p>
+
+<p>周边设备用 <code>CBPeripheralManager</code> 这个类管理；</p>
+
+<p>周边设备里面还有服务类 <code>CBService</code>，服务里面有各种各样的特性类 <code>CBCharacteristic</code>。</p>
+
+<h2>仿写lightblue</h2>
+
+<h3>基本流程</h3>
+
+<ol>
+<li>假设我们有2台以上可用设备。</li>
+<li>其中一台作为调试机，用来搜索其它设备，并连接上去。所以，是中央设备<code>central</code>。</li>
+<li>其它设备设置为蓝牙发射器，即是周边设备<code>peripheral</code>。</li>
+<li>调试机先扫描周边设备，用UITableView展示所扫描到的周边设备。</li>
+<li>点击其中一台设备，进行连接<code>connect</code>。</li>
+<li>连接上后，获取其中的所有服务<code>services</code>。</li>
+<li>对其中每个服务进行遍历，获取所有的特性<code>Characteristic</code>。</li>
+<li>读取每个特性，获取每个特性的值<code>value</code>。</li>
+</ol>
+
+
+<p>至此，lightblue基本的仿写思路就清晰列出来了。</p>
+
+<!-- more -->
+
+
+<h3>1. 扫描设备</h3>
+
+<p>先包含头文件</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="cp">#import &lt;CoreBluetooth/CoreBluetooth.h&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>然后添加协议 <code>CBCentralManagerDelegate</code></p>
+
+<p>接着定义2个属性， CBCentralManager用来管理我们的中央设备，NSMutableArray用来保存扫描出来的周边设备。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">CBCentralManager</span> <span class="o">*</span><span class="n">centralMgr</span><span class="p">;</span>
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">arrayBLE</span><span class="p">;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>中央设备创建很简单，第一个参数代表 <code>CBCentralManager</code> 代理，第二个参数设置为nil，因为Peripheral Manager将Run在主线程中。如果你想用不同的线程做更加复杂的事情，你需要创建一个队列（queue）并将它放在这儿。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="n">self</span><span class="p">.</span><span class="n">centralMgr</span> <span class="o">=</span> <span class="p">[[</span><span class="n">CBCentralManager</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithDelegate:</span><span class="n">self</span> <span class="nl">queue:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'><span class="n">self</span><span class="p">.</span><span class="n">arrayBLE</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>实现<code>centralManagerDidUpdateState</code>。当Central Manager被初始化，我们要检查它的状态，以检查运行这个App的设备是不是支持BLE。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">centralManagerDidUpdateState:</span><span class="p">(</span><span class="n">CBCentralManager</span> <span class="o">*</span><span class="p">)</span><span class="n">central</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="k">switch</span> <span class="p">(</span><span class="n">central</span><span class="p">.</span><span class="n">state</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="k">case</span> <span class="nl">CBCentralManagerStatePoweredOn:</span>
+</span><span class='line'>              <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">centralMgr</span> <span class="nl">scanForPeripheralsWithServices:</span><span class="nb">nil</span> <span class="nl">options:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>              <span class="k">break</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>          <span class="k">default</span><span class="o">:</span>
+</span><span class='line'>              <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Central Manager did change state&quot;</span><span class="p">);</span>
+</span><span class='line'>              <span class="k">break</span><span class="p">;</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>-scanForPeripheralsWithServices:options:</code>方法是中央设备开始扫描，可以设置为特定UUID来指，来差找一个指定的服务了。我们需要扫描周边所有设备，第一个参数设置为nil。</p>
+
+<p>当发起扫描之后，我们需要实现
+<code>centralManager:didDiscoverPeripheral:advertisementData:RSSI:</code>
+通过该回调来获取发现设备。</p>
+
+<p>这个回调说明着广播数据和信号质量(RSSI-Received Signal Strength Indicator)的周边设备被发现。通过信号质量，可以用判断周边设备离中央设备的远近。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">centralManager:</span><span class="p">(</span><span class="n">CBCentralManager</span> <span class="o">*</span><span class="p">)</span><span class="n">central</span> <span class="nl">didDiscoverPeripheral:</span><span class="p">(</span><span class="n">CBPeripheral</span> <span class="o">*</span><span class="p">)</span><span class="n">peripheral</span> <span class="nl">advertisementData:</span><span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="n">advertisementData</span> <span class="nl">RSSI:</span><span class="p">(</span><span class="n">NSNumber</span> <span class="o">*</span><span class="p">)</span><span class="n">RSSI</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="n">BLEInfo</span> <span class="o">*</span><span class="n">discoveredBLEInfo</span> <span class="o">=</span> <span class="p">[[</span><span class="n">BLEInfo</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>      <span class="n">discoveredBLEInfo</span><span class="p">.</span><span class="n">discoveredPeripheral</span> <span class="o">=</span> <span class="n">peripheral</span><span class="p">;</span>
+</span><span class='line'>      <span class="n">discoveredBLEInfo</span><span class="p">.</span><span class="n">rssi</span> <span class="o">=</span> <span class="n">RSSI</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="c1">// update tableview</span>
+</span><span class='line'>      <span class="p">[</span><span class="n">self</span> <span class="nl">saveBLE:</span><span class="n">discoveredBLEInfo</span><span class="p">];</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>BLEInfo是我新建的一个类，用来存储周边设备信息的，具体如下：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="k">@interface</span> <span class="nc">BLEInfo</span> : <span class="nc">NSObject</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">CBPeripheral</span> <span class="o">*</span><span class="n">discoveredPeripheral</span><span class="p">;</span>
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">NSNumber</span> <span class="o">*</span><span class="n">rssi</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>保存周边设备信息，并把它们显示到UITableView上：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nl">saveBLE:</span><span class="p">(</span><span class="n">BLEInfo</span> <span class="o">*</span><span class="p">)</span><span class="n">discoveredBLEInfo</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="k">for</span> <span class="p">(</span><span class="n">BLEInfo</span> <span class="o">*</span><span class="n">info</span> <span class="k">in</span> <span class="n">self</span><span class="p">.</span><span class="n">arrayBLE</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="k">if</span> <span class="p">([</span><span class="n">info</span><span class="p">.</span><span class="n">discoveredPeripheral</span><span class="p">.</span><span class="n">identifier</span><span class="p">.</span><span class="n">UUIDString</span> <span class="nl">isEqualToString:</span><span class="n">discoveredBLEInfo</span><span class="p">.</span><span class="n">discoveredPeripheral</span><span class="p">.</span><span class="n">identifier</span><span class="p">.</span><span class="n">UUIDString</span><span class="p">])</span>
+</span><span class='line'>          <span class="p">{</span>
+</span><span class='line'>              <span class="k">return</span> <span class="n">NO</span><span class="p">;</span>
+</span><span class='line'>          <span class="p">}</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">arrayBLE</span> <span class="nl">addObject:</span><span class="n">discoveredBLEInfo</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">tableView</span> <span class="n">reloadData</span><span class="p">];</span>
+</span><span class='line'>      <span class="k">return</span> <span class="n">YES</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>扫描到的周边设备展示如下：</p>
+
+<p><img src="http://boxertan.github.io/images/bluetooth_2014-07-07/scanBLEInfo.png" alt="扫描到的周边设备" /></p>
+
+<h3>2. 连接设备</h3>
+
+<p>当我们点击其中一个设备，尝试进行连接。lightblue是点击后就立马连接的，然后在下一个UITableView来展示该周边设备的服务与特性。</p>
+
+<p>而我是进入下一页UITableView才开始连接，差别不大。但是注意的是，一定要把我们之前的self.centralMgr传递到下一页的UITableView来使用，并且重新设置delegate。</p>
+
+<p>用来展示服务和特性的UITableViewController：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="err">#</span><span class="n">import</span> <span class="o">&lt;</span><span class="n">UIKit</span><span class="o">/</span><span class="n">UIKit</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+</span><span class='line'>  <span class="err">#</span><span class="n">import</span> <span class="o">&lt;</span><span class="n">CoreBluetooth</span><span class="o">/</span><span class="n">CoreBluetooth</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="k">@interface</span> <span class="nc">BLEInfoTableViewController</span> : <span class="nc">UITableViewController</span>
+</span><span class='line'>  <span class="o">&lt;</span>
+</span><span class='line'>  <span class="n">CBPeripheralManagerDelegate</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">CBCentralManagerDelegate</span><span class="p">,</span>
+</span><span class='line'>  <span class="n">CBPeripheralDelegate</span>
+</span><span class='line'>  <span class="o">&gt;</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">CBCentralManager</span> <span class="o">*</span><span class="n">centralMgr</span><span class="p">;</span>
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">CBPeripheral</span> <span class="o">*</span><span class="n">discoveredPeripheral</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// tableview sections，保存蓝牙设备里面的services字典，字典第一个为service，剩下是特性与值</span>
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">nonatomic</span><span class="p">,</span> <span class="n">strong</span><span class="p">)</span> <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">arrayServices</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="c1">// 用来记录有多少特性，当全部特性保存完毕，刷新列表</span>
+</span><span class='line'>  <span class="k">@property</span> <span class="p">(</span><span class="n">atomic</span><span class="p">,</span> <span class="n">assign</span><span class="p">)</span> <span class="kt">int</span> <span class="n">characteristicNum</span><span class="p">;</span>
+</span><span class='line'>  
+</span><span class='line'>  <span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>记得把之前的centrlMgr传过来，记得要重新设置delegate：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'><span class="k">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span>
+</span><span class='line'><span class="p">{</span>
+</span><span class='line'>    <span class="p">[</span><span class="n">super</span> <span class="n">viewDidLoad</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="p">[</span><span class="n">_centralMgr</span> <span class="nl">setDelegate:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="n">_discoveredPeripheral</span><span class="p">)</span>
+</span><span class='line'>    <span class="p">{</span>
+</span><span class='line'>        <span class="p">[</span><span class="n">_centralMgr</span> <span class="nl">connectPeripheral:</span><span class="n">_discoveredPeripheral</span> <span class="nl">options:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="n">_arrayServices</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+</span><span class='line'>    <span class="n">_characteristicNum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>其中，</p>
+
+<blockquote><p>[<em>centralMgr connectPeripheral:</em>discoveredPeripheral options:nil];</p></blockquote>
+
+<p>就是中央设备向周边设备发起连接。</p>
+
+<p>我们可以实现下面的函数，如果连接失败，就会得到回调：</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">centralManager:</span><span class="p">(</span><span class="n">CBCentralManager</span> <span class="o">*</span><span class="p">)</span><span class="n">central</span> <span class="nl">didFailToConnectPeripheral:</span><span class="p">(</span><span class="n">CBPeripheral</span> <span class="o">*</span><span class="p">)</span><span class="n">peripheral</span> <span class="nl">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">*</span><span class="p">)</span><span class="n">error</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;didFailToConnectPeripheral : %@&quot;</span><span class="p">,</span> <span class="n">error</span><span class="p">.</span><span class="n">localizedDescription</span><span class="p">);</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>我们必须实现<code>didConnectPeripheral</code>，只要连接成功，就能回调到该函数，开始获取服务。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">centralManager:</span><span class="p">(</span><span class="n">CBCentralManager</span> <span class="o">*</span><span class="p">)</span><span class="n">central</span> <span class="nl">didConnectPeripheral:</span><span class="p">(</span><span class="n">CBPeripheral</span> <span class="o">*</span><span class="p">)</span><span class="n">peripheral</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">arrayServices</span> <span class="n">removeAllObjects</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="p">[</span><span class="n">_discoveredPeripheral</span> <span class="nl">setDelegate:</span><span class="n">self</span><span class="p">];</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="p">[</span><span class="n">_discoveredPeripheral</span> <span class="nl">discoverServices:</span><span class="nb">nil</span><span class="p">];</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>discoverServices</code>就是查找该周边设备的服务。</p>
+
+<h3>3. 获取服务</h3>
+
+<p>当找到了服务之后，就能进入<code>didDiscoverServices</code>的回调。我们把全部服务都保存起来。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">peripheral:</span><span class="p">(</span><span class="n">CBPeripheral</span> <span class="o">*</span><span class="p">)</span><span class="n">peripheral</span> <span class="nl">didDiscoverServices:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">*</span><span class="p">)</span><span class="n">error</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;didDiscoverServices : %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">error</span> <span class="n">localizedDescription</span><span class="p">]);</span>
+</span><span class='line'>  <span class="c1">//        [self cleanup];</span>
+</span><span class='line'>          <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="k">for</span> <span class="p">(</span><span class="n">CBService</span> <span class="o">*</span><span class="n">s</span> <span class="k">in</span> <span class="n">peripheral</span><span class="p">.</span><span class="n">services</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;Service found with UUID : %@&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">.</span><span class="n">UUID</span><span class="p">);</span>
+</span><span class='line'>          <span class="n">NSMutableDictionary</span> <span class="o">*</span><span class="n">dic</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableDictionary</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithDictionary:</span><span class="err">@</span><span class="p">{</span><span class="nl">SECTION_NAME:</span><span class="n">s</span><span class="p">.</span><span class="n">UUID</span><span class="p">.</span><span class="n">description</span><span class="p">}];</span>
+</span><span class='line'>          <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">arrayServices</span> <span class="nl">addObject:</span><span class="n">dic</span><span class="p">];</span>
+</span><span class='line'>          <span class="p">[</span><span class="n">s</span><span class="p">.</span><span class="n">peripheral</span> <span class="nl">discoverCharacteristics:</span><span class="nb">nil</span> <span class="nl">forService:</span><span class="n">s</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>4. 获取特性</h3>
+
+<p>我们通过<code>discoverCharacteristics</code>来获取每个服务下的特性，通过下面的回调来获取。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">peripheral:</span><span class="p">(</span><span class="n">CBPeripheral</span> <span class="o">*</span><span class="p">)</span><span class="n">peripheral</span> <span class="nl">didDiscoverCharacteristicsForService:</span><span class="p">(</span><span class="n">CBService</span> <span class="o">*</span><span class="p">)</span><span class="n">service</span> <span class="nl">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">*</span><span class="p">)</span><span class="n">error</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;didDiscoverCharacteristicsForService error : %@&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">error</span> <span class="n">localizedDescription</span><span class="p">]);</span>
+</span><span class='line'>          <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="k">for</span> <span class="p">(</span><span class="n">CBCharacteristic</span> <span class="o">*</span><span class="n">c</span> <span class="k">in</span> <span class="n">service</span><span class="p">.</span><span class="n">characteristics</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">self</span><span class="p">.</span><span class="n">characteristicNum</span><span class="o">++</span><span class="p">;</span>
+</span><span class='line'>          <span class="p">[</span><span class="n">peripheral</span> <span class="nl">readValueForCharacteristic:</span><span class="n">c</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>5. 获取特性值</h3>
+
+<p><code>readValueForCharacteristic</code>可以读取特性的值。</p>
+
+<p>通过下面的回调，就能得到特性值。</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+</pre></td><td class='code'><pre><code class='objective-c'><span class='line'>  <span class="o">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nl">peripheral:</span><span class="p">(</span><span class="n">CBPeripheral</span> <span class="o">*</span><span class="p">)</span><span class="n">peripheral</span> <span class="nl">didUpdateValueForCharacteristic:</span><span class="p">(</span><span class="n">CBCharacteristic</span> <span class="o">*</span><span class="p">)</span><span class="n">characteristic</span> <span class="nl">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">*</span><span class="p">)</span><span class="n">error</span>
+</span><span class='line'>  <span class="p">{</span>
+</span><span class='line'>      <span class="n">self</span><span class="p">.</span><span class="n">characteristicNum</span><span class="o">--</span><span class="p">;</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">characteristicNum</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">tableView</span> <span class="n">reloadData</span><span class="p">];</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;didUpdateValueForCharacteristic error : %@&quot;</span><span class="p">,</span> <span class="n">error</span><span class="p">.</span><span class="n">localizedDescription</span><span class="p">);</span>
+</span><span class='line'>          <span class="k">return</span><span class="p">;</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="n">NSString</span> <span class="o">*</span><span class="n">stringFromData</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithData:</span><span class="n">characteristic</span><span class="p">.</span><span class="n">value</span> <span class="nl">encoding:</span><span class="n">NSUTF8StringEncoding</span><span class="p">];</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="k">if</span> <span class="p">([</span><span class="n">stringFromData</span> <span class="nl">isEqualToString:</span><span class="s">@&quot;EOM&quot;</span><span class="p">])</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;the characteristic text is END&quot;</span><span class="p">);</span>
+</span><span class='line'>  <span class="c1">//        [peripheral setNotifyValue:NO forCharacteristic:characteristic];</span>
+</span><span class='line'>  <span class="c1">//        [self.centralMgr cancelPeripheralConnection:peripheral];</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  
+</span><span class='line'>      <span class="k">for</span> <span class="p">(</span><span class="n">NSMutableDictionary</span> <span class="o">*</span><span class="n">dic</span> <span class="k">in</span> <span class="n">self</span><span class="p">.</span><span class="n">arrayServices</span><span class="p">)</span>
+</span><span class='line'>      <span class="p">{</span>
+</span><span class='line'>          <span class="n">NSString</span> <span class="o">*</span><span class="n">service</span> <span class="o">=</span> <span class="p">[</span><span class="n">dic</span> <span class="nl">valueForKey:</span><span class="n">SECTION_NAME</span><span class="p">];</span>
+</span><span class='line'>          <span class="k">if</span> <span class="p">([</span><span class="n">service</span> <span class="nl">isEqual:</span><span class="n">characteristic</span><span class="p">.</span><span class="n">service</span><span class="p">.</span><span class="n">UUID</span><span class="p">.</span><span class="n">description</span><span class="p">])</span>
+</span><span class='line'>          <span class="p">{</span>
+</span><span class='line'>              <span class="n">NSLog</span><span class="p">(</span><span class="s">@&quot;characteristic.description : %@&quot;</span><span class="p">,</span> <span class="n">characteristic</span><span class="p">.</span><span class="n">UUID</span><span class="p">.</span><span class="n">description</span><span class="p">);</span>
+</span><span class='line'>              <span class="p">[</span><span class="n">dic</span> <span class="nl">setValue:</span><span class="n">characteristic</span><span class="p">.</span><span class="n">value</span> <span class="nl">forKey:</span><span class="n">characteristic</span><span class="p">.</span><span class="n">UUID</span><span class="p">.</span><span class="n">description</span><span class="p">];</span>
+</span><span class='line'>          <span class="p">}</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><img src="http://boxertan.github.io/images/bluetooth_2014-07-07/services_characteristic.png" alt="连接到周边设备获得的蓝牙信息" /></p>
+
+<h2>其它</h2>
+
+<p>本来苹果是提供了xcode5.0加ios7的模拟器来实现模拟器开启蓝牙的，本来连文章都给出了：<a href="https://developer.apple.com/library/ios/technotes/tn2295/_index.html">https://developer.apple.com/library/ios/technotes/tn2295/_index.html</a></p>
+
+<p>后来苹果把这文章给删了，还把ios7模拟器支持开启蓝牙给去掉。</p>
+
+<p>那么，可以通过这个文章<a href="http://blog.csdn.net/zhenyu5211314/article/details/24399887">http://blog.csdn.net/zhenyu5211314/article/details/24399887</a>,使用6.0的模拟器来调试。</p>
+
+<h2>参考文章</h2>
+
+<p><a href="http://blog.csdn.net/jimoduwu/article/details/8917104">iOS CoreBluetooth 教程</a></p>
+
+<p><a href="http://cms.35g.tw/coding/%E8%97%8D%E7%89%99-ble-corebluetooth-%E5%88%9D%E6%8E%A2/">藍牙 BLE CoreBluetooth 初探</a></p>
+
+<p><a href="http://see.sl088.com/wiki/%E8%93%9D%E7%89%994.0_For_IOS">蓝牙4.0 For IOS</a></p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[在xcode5上开发iBeacon的ios7应用]]></title>
@@ -25,6 +515,8 @@
 <p>iBeacon的用处和好处我就不介绍了，大家可以看我最后面附录的参考文章。</p>
 
 <p>本文重点介绍如何写一个app，通过2台iphone来实现iBeancon的收发。</p>
+
+<p>强调一点，就是ibeacon是不能进行数据交互的，只能广播信号。</p>
 
 <h4>所需材料</h4>
 
