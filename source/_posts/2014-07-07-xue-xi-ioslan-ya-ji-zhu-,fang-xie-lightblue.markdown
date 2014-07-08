@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "学习ios蓝牙技术，仿写lightblue_2014-07-07"
+title: "学习ios蓝牙技术，仿写lightblue"
 date: 2014-07-07 09:03:05 +0800
 comments: true
 categories: 
