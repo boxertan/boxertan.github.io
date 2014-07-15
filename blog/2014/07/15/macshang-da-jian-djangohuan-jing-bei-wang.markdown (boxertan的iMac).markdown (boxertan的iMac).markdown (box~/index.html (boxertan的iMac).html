@@ -1,0 +1,269 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>mac上搭建django环境备忘 - Boxertan's Blog</title>
+	<meta name="author" content="boxertan">
+
+	
+	<meta name="description" content="由于项目需要，快速搭建一个demo，要用到一个后台环境。于是研究了一下django框架，挺不错的。下面是一些搭建过程。 Python用的是mac自带的，2.7.x版本，到django官网下载最新版本1.6.5。 解压，安装django： tar xzvf Django-*.tar.gz cd &hellip;">
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<link href="/atom.xml" rel="alternate" title="Boxertan's Blog" type="application/atom+xml">
+	<link rel="canonical" href="">
+	<link href="/favicon.png" rel="shortcut icon">
+	<link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+	<!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+	<script async="true" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	
+</head>
+
+
+<body>
+	<header id="header" class="inner"><h1><a href="/">Boxertan's Blog</a></h1>
+<nav id="main-nav"><ul class="main">
+	<li><a href="/">Blog</a></li>
+	<li><a href="/blog/archives">Archives</a></li>
+	<li><a href="/about">About Me</a></li>
+</ul>
+</nav>
+<nav id="mobile-nav">
+	<div class="alignleft menu">
+		<a class="button">Menu</a>
+		<div class="container"><ul class="main">
+	<li><a href="/">Blog</a></li>
+	<li><a href="/blog/archives">Archives</a></li>
+	<li><a href="/about">About Me</a></li>
+</ul>
+</div>
+	</div>
+	<div class="alignright search">
+		<a class="button"></a>
+		<div class="container">
+			<form action="https://www.google.com/search" method="get">
+				<input type="text" name="q" results="0">
+				<input type="hidden" name="q" value="site:boxertan.github.io">
+			</form>
+		</div>
+	</div>
+</nav>
+<nav id="sub-nav" class="alignright">
+	<div class="social">
+		
+		
+		
+		
+    
+		
+		
+		
+		
+		
+		<a class="rss" href="/atom.xml" title="RSS">RSS</a>
+		
+    
+	</div>
+	<form class="search" action="https://www.google.com/search" method="get">
+		<input class="alignright" type="text" name="q" results="0">
+		<input type="hidden" name="q" value="site:boxertan.github.io">
+	</form>
+</nav>
+
+</header>
+	
+		
+	
+	<div id="content" class="inner"><article class="post">
+	<h2 class="title">Mac上搭建django环境备忘</h2>
+	<div class="entry-content"><p>由于项目需要，快速搭建一个demo，要用到一个后台环境。于是研究了一下django框架，挺不错的。下面是一些搭建过程。</p>
+
+<p>Python用的是mac自带的，2.7.x版本，到django官网下载最新版本1.6.5。</p>
+
+<!-- more -->
+
+
+<p>解压，安装django：</p>
+
+<pre><code>tar xzvf Django-*.tar.gz
+
+cd Django-*
+
+sudo python setup.py install
+</code></pre>
+
+<p>测试是否安装成功：</p>
+
+<pre><code>python
+
+&gt;&gt;&gt; import django
+
+&gt;&gt;&gt; django.VERSION
+</code></pre>
+
+<p>成功的话会显示django版本</p>
+
+<pre><code>&gt;&gt;&gt; django.VERSION
+(1, 6, 5, 'final', 0)
+</code></pre>
+
+<p>找到一个目录，准备存放我们的web服务器文件，然后新建我们的web服务器，名字为mysite：</p>
+
+<pre><code>django-admin.py startproject mysite
+</code></pre>
+
+<p>进入到mysite目录下，就可以把服务器跑起来了：</p>
+
+<pre><code>python manage.py runserver
+</code></pre>
+
+<p>这样就能看到服务在运行：</p>
+
+<pre><code>Validating models...
+0 errors found.
+
+Django version 1.0, using settings 'mysite.settings'
+Development server is running at http://127.0.0.1:8000/
+Quit the server with CONTROL-C.
+</code></pre>
+
+<p>如果要建立一个cgi，很简单，先建立一个应用，随便叫polls</p>
+
+<pre><code>python manage.py startapp polls
+</code></pre>
+
+<p>进入下一层mysite目录，找到urls.py文件，添加最后一行代码：</p>
+
+<pre><code>urlpatterns = patterns('',
+    # Examples:
+    # url(r'^$', 'mysite.views.home', name='home'),
+    # url(r'^blog/', include('blog.urls')),
+
+    url(r'^admin/', include(admin.site.urls)),
+    url(r'^testcgi/', 'polls.views.testcgi'),
+)
+</code></pre>
+
+<p>最后一句代码意思是：定义一个cgi叫testcgi，指向的函数为polls\views.py下的 <code>testcgi</code> 函数</p>
+
+<p>找到 <code>mysite\polls\views.py</code> 文件，写入如下代码：</p>
+
+<pre><code>from django.shortcuts import render
+from django.http import HttpResponse
+import json
+
+def testcgi(request):
+
+  ret = json.dumps({'ok': request.GET['a']})
+  return HttpResponse(ret)
+</code></pre>
+
+<p>代码意思很简单，cgi是通过GET方式获取，参数是a。
+函数获取出a参数对应的值，然后返回一个json数据给客户端。</p>
+
+<p>下面我们在浏览器提交cgi试试：</p>
+
+<pre><code>http://127.0.0.1/testcgi?a=12345
+</code></pre>
+
+<p>浏览器就返回了这样的数据。</p>
+
+<pre><code>{'ok':12345}
+</code></pre>
+</div>
+
+
+<div class="meta">
+	<div class="date">
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-07-15T10:26:11+08:00" pubdate data-updated="true">Jul 15<span>th</span>, 2014</time></div>
+	<div class="tags">
+
+</div>
+	
+
+
+         
+          | <a href="#comments">Comments</a>
+         
+
+</div>
+</article>
+
+	<div class="share">
+	<div class="addthis_toolbox addthis_default_style ">
+		
+		
+		
+		
+	</div>
+	
+</div>
+
+
+
+
+
+  <section>
+    <h1>Comments</h1>
+    <div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
+    <div class="ds-thread"></div>
+    <script type="text/javascript">
+    var duoshuoQuery = {short_name:"boxertan"};
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+        || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+    </script>
+<!-- Duoshuo Comment END -->
+</div>
+  </section>
+
+</div>
+	<footer id="footer" class="inner">Copyright &copy; 2014
+
+    boxertan
+
+</footer>
+	<script src="/javascripts/slash.js"></script>
+<script src="/javascripts/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+	$('.fancybox').fancybox();
+})(jQuery);
+</script> <!-- Delete or comment this line to disable Fancybox -->
+
+
+
+
+	<script type="text/javascript">
+		var _gaq = _gaq || [];
+		_gaq.push(['_setAccount', 'UA-52404209-1']);
+		_gaq.push(['_trackPageview']);
+
+		(function() {
+			var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+			ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+			var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+		})();
+	</script>
+
+
+
+</body>
+</html>
