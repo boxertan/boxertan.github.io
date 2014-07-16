@@ -1,0 +1,248 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>mac下安装过octopress导致ruby版本不对，cocoapods无法使用的解决方法 - Boxertan's Blog</title>
+	<meta name="author" content="boxertan">
+
+	
+	<meta name="description" content="由于之前弄过octopress，最近要用cocoapods发现无法使用： boxertandeiMac:~ boxertan$ pod
+/System/Library/Frameworks/Ruby.framework/Versions/2.0/usr/lib/ruby/2.0.0/ &hellip;">
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+	<link href="/atom.xml" rel="alternate" title="Boxertan's Blog" type="application/atom+xml">
+	<link rel="canonical" href="">
+	<link href="/favicon.png" rel="shortcut icon">
+	<link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+	<!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+	<script async="true" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	
+</head>
+
+
+<body>
+	<header id="header" class="inner"><h1><a href="/">Boxertan's Blog</a></h1>
+<nav id="main-nav"><ul class="main">
+	<li><a href="/">Blog</a></li>
+	<li><a href="/blog/archives">Archives</a></li>
+	<li><a href="/about">About Me</a></li>
+</ul>
+</nav>
+<nav id="mobile-nav">
+	<div class="alignleft menu">
+		<a class="button">Menu</a>
+		<div class="container"><ul class="main">
+	<li><a href="/">Blog</a></li>
+	<li><a href="/blog/archives">Archives</a></li>
+	<li><a href="/about">About Me</a></li>
+</ul>
+</div>
+	</div>
+	<div class="alignright search">
+		<a class="button"></a>
+		<div class="container">
+			<form action="https://www.google.com/search" method="get">
+				<input type="text" name="q" results="0">
+				<input type="hidden" name="q" value="site:boxertan.github.io">
+			</form>
+		</div>
+	</div>
+</nav>
+<nav id="sub-nav" class="alignright">
+	<div class="social">
+		
+		
+		
+		
+    
+		
+		
+		
+		
+		
+		<a class="rss" href="/atom.xml" title="RSS">RSS</a>
+		
+    
+	</div>
+	<form class="search" action="https://www.google.com/search" method="get">
+		<input class="alignright" type="text" name="q" results="0">
+		<input type="hidden" name="q" value="site:boxertan.github.io">
+	</form>
+</nav>
+
+</header>
+	
+		
+	
+	<div id="content" class="inner"><article class="post">
+	<h2 class="title">Mac下安装过octopress导致ruby版本不对，cocoapods无法使用的解决方法</h2>
+	<div class="entry-content"><p>由于之前弄过octopress，最近要用cocoapods发现无法使用：</p>
+
+<pre><code>boxertandeiMac:~ boxertan$ pod
+/System/Library/Frameworks/Ruby.framework/Versions/2.0/usr/lib/ruby/2.0.0/rubygems/dependency.rb:296:in `to_specs': Could not find 'cocoapods' (&gt;= 0) among 35 total gem(s) (Gem::LoadError)
+from /System/Library/Frameworks/Ruby.framework/Versions/2.0/usr/lib/ruby/2.0.0/rubygems/dependency.rb:307:in `to_spec'
+from /System/Library/Frameworks/Ruby.framework/Versions/2.0/usr/lib/ruby/2.0.0/rubygems/core_ext/kernel_gem.rb:47:in `gem'
+from /usr/bin/pod:22:in `&lt;main&gt;’
+</code></pre>
+
+<p>因为cocoapods需要用到比较新的ruby版本，而octopress要用1.9.3，所以，我们用rvm安装2个版本，然后用到哪个就切换一下版本即可。</p>
+
+<!-- more -->
+
+
+<p>首先，rvm是管理ruby、gem的工具，先更新rvm到最新版本：</p>
+
+<pre><code>curl -L get.rvm.io | bash -s stable --autolibs=enabled
+
+rvm get head
+rvm reload
+rvm -v
+</code></pre>
+
+<p>这时候就能显示最新的版本：</p>
+
+<pre><code>rvm 1.25.28 (master) by Wayne E. Seguin &lt;wayneeseguin@gmail.com&gt;, Michal Papis &lt;mpapis@gmail.com&gt; [https://rvm.io/]
+</code></pre>
+
+<p>然后，查看当前ruby版本：</p>
+
+<pre><code>ruby -v
+</code></pre>
+
+<p>发现只有1.9.3，于是再安装一个2.1.1：</p>
+
+<pre><code>rvm install ruby-2.1.1
+</code></pre>
+
+<p>比如说安装失败什么的，有2个原因：</p>
+
+<ol>
+<li>被墙。试试翻墙吧</li>
+<li><p>提示.git文件夹被占用，可以用下面的命令解决</p>
+
+<p> rm -rf /usr/local/Cellar /usr/local/.git &amp;&amp; brew cleanup</p></li>
+</ol>
+
+
+<p>如果顺利的安装完，可以看到2个版本已经安装好：</p>
+
+<pre><code>boxertandeiMac:~ boxertan$ rvm list
+
+rvm rubies
+
+ * ruby-1.9.3-p547 [ x86_64 ]
+=&gt; ruby-2.1.1 [ x86_64 ]
+
+# =&gt; - current
+# =* - current &amp;&amp; default
+#  * - default
+</code></pre>
+
+<p>然后用2.1.1重新安装一下cocoapods</p>
+
+<pre><code>rvm use 2.1.1
+gem uninstall cocoapods
+gem install cocoapods
+</code></pre>
+
+<p>这里出错最有可能的原因：被墙。</p>
+
+<p>可以换ruby.taobao.org的源，但是我换了之后，发现有些文件缺失，还是安装不了。于是，还是换回官方的源，然后通过翻墙去下载。慢是慢了点，但是，总算解决。</p>
+</div>
+
+
+<div class="meta">
+	<div class="date">
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2014-07-16T15:38:47+08:00" pubdate data-updated="true">Jul 16<span>th</span>, 2014</time></div>
+	<div class="tags">
+
+</div>
+	
+
+
+         
+          | <a href="#comments">Comments</a>
+         
+
+</div>
+</article>
+
+	<div class="share">
+	<div class="addthis_toolbox addthis_default_style ">
+		
+		
+		
+		
+	</div>
+	
+</div>
+
+
+
+
+
+  <section>
+    <h1>Comments</h1>
+    <div id="comments" aria-live="polite"><!-- Duoshuo Comment BEGIN -->
+    <div class="ds-thread"></div>
+    <script type="text/javascript">
+    var duoshuoQuery = {short_name:"boxertan"};
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+        || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+    </script>
+<!-- Duoshuo Comment END -->
+</div>
+  </section>
+
+</div>
+	<footer id="footer" class="inner">Copyright &copy; 2014
+
+    boxertan
+
+</footer>
+	<script src="/javascripts/slash.js"></script>
+<script src="/javascripts/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+	$('.fancybox').fancybox();
+})(jQuery);
+</script> <!-- Delete or comment this line to disable Fancybox -->
+
+
+
+
+	<script type="text/javascript">
+		var _gaq = _gaq || [];
+		_gaq.push(['_setAccount', 'UA-52404209-1']);
+		_gaq.push(['_trackPageview']);
+
+		(function() {
+			var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+			ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+			var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+		})();
+	</script>
+
+
+
+</body>
+</html>
